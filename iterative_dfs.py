@@ -119,8 +119,10 @@ class MazeGenerator:
     # ---------- ASCII DISPLAY ----------
     def display_ascii(self) -> None:
         RED_BG = "\033[41m"
+        # black_BG = "\033[43m"
         RESET = "\033[0m"
         WALL = chr(9608)
+        # black_WALL = black_BG + " " + RESET
         MARK = '@'
         print(WALL + WALL * 4 * self.width)
         # time.sleep(1)
@@ -148,6 +150,6 @@ class MazeGenerator:
 # # ---------- MAIN ----------
 
 if __name__ == "__main__":
-    mg = MazeGenerator(11, 11)
+    mg = MazeGenerator(15, 15)
     mg.generate()
     mg.display_ascii()

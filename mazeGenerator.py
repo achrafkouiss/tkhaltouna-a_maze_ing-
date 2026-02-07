@@ -17,8 +17,6 @@ NORTH, SOUTH, EAST, WEST = 'n', 's', 'e', 'w'
 maze = {}
 for x in range(WIDTH):
     for y in range(HEIGHT):
-        # print(x ,y)
-        # print(WALL)
         maze[(x, y)] = WALL # Every space is a wall at first.
 
 def printMaze(maze, markX=None, markY=None):
@@ -42,8 +40,8 @@ def visit(x, y):
     recursively move to neighboring unvisited spaces. This
     function backtracks when the mark has reached a dead end."""
     maze[(x, y)] = EMPTY # "Carve out" the space at x, y.
-    # printMaze(maze, x, y) # Display the maze as we generate it.
-    # print('\n\n')
+    printMaze(maze, x, y) # Display the maze as we generate it.
+    print('\n\n')
 
     while True:
         # Check which neighboring spaces adjacent to
@@ -95,7 +93,7 @@ def visit(x, y):
 
 
 # Carve out the paths in the maze data structure:
-hasVisited = [(10, 1)] # Start by visiting the top-left corner.
+hasVisited = [(1, 1)] # Start by visiting the top-left corner.
 visit(1, 1)
 
 # Display the final resulting maze data structure:

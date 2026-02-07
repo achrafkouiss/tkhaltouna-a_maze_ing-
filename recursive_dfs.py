@@ -141,7 +141,7 @@ class MazeGenerator:
 # ---------- MAIN ----------
 
 if __name__ == "__main__":
-    mg = MazeGenerator(10, 10)  # Works for small mazes
+    mg = MazeGenerator(50, 50)  # Works for small mazes
     mg.generate()
     mg.display_ascii()
     # print(mg.maze)
