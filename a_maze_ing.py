@@ -115,8 +115,8 @@ class MazeGenerator:
             scale_y = min(1, self.height / 5)
 
             # Center the pattern
-            base_x = (self.width - round(13 * scale_x)) // 2
-            base_y = (self.height - round(5 * scale_y)) // 2
+            base_x = (self.width - round(13 * scale_x)) / 2
+            base_y = (self.height - round(5 * scale_y)) / 2
 
             for oy in range(5):
                 for ox in range(13):
@@ -153,27 +153,6 @@ class MazeGenerator:
         opposite = {"N": "S", "S": "N", "E": "W", "W": "E"}
         c1.walls[d] = False
         c2.walls[opposite[d]] = False
-
-    def open_entry_exit(self) -> None:
-        """
-        Ensure entry and exit cells are connected to the maze interior.
-
-        IMPORTANT:
-        - Does NOT break the outer boundary
-        - Only opens walls *toward* internal neighbors
-        """
-        ex, ey = self.entry
-        fx, fy = self.exit
-
-        # Entry connections
-        for d, nx, ny in [("E", ex + 1, ey), ("S", ex, ey + 1)]:
-            if self._in_bounds(nx, ny):
-                self._remove_wall(self.maze[ey][ex], self.maze[ny][nx], d)
-
-        # Exit connections
-        for d, nx, ny in [("W", fx - 1, fy), ("N", fx, fy - 1)]:
-            if self._in_bounds(nx, ny):
-                self._remove_wall(self.maze[fy][fx], self.maze[ny][nx], d)
 
     # ---------- DISPLAY ----------
 
@@ -268,9 +247,6 @@ class MazeGenerator:
             else:
                 stack.pop()
 
-        # Final structural fix
-        self.open_entry_exit()
-
         if animate:
             os.system("clear")
         self.display_ascii_real()
@@ -308,87 +284,88 @@ It provides:
 - Optional animation
 """
 
-# if __name__ == "__main__":
-#     """
-#     Program entry point.
-#
-#     This block is executed ONLY when the file is run directly:
-#         python3 maze.py
-#
-#     It will NOT run if this file is imported as a module.
-#     """
-#
-#     # Create a single maze instance
-#     # This instance is reused and reset between generations
-#     mg = MazeGenerator(
-#         width=15,
-#         height=15,
-#         entry=(0, 0),
-#         exit=(14, 14),
-#     )
-#
-#     # Infinite loop to keep showing the menu
-#     while True:
-#
-#         # Display available options
-#         print("\n1 - Generate maze instantly (no animation)")
-#         print("2 - Generate maze with animation")
-#         print("3 - Exit")
-#
-#         # Read user choice from stdin
-#         # strip() removes trailing newline and spaces
-#         choice = input("> ").strip()
-#
-#         if choice == "1":
-#             # Reset maze to initial state (all walls closed, no visits)
-#             mg.reset()
-#
-#             # Generate maze without animation
-#             mg.generate_step_by_step(animate=False)
-#
-#         elif choice == "2":
-#             # Reset maze before regenerating
-#             mg.reset()
-#
-#             # Generate maze with animation
-#             # delay controls animation speed (lower = faster)
-#             mg.generate_step_by_step(animate=True, delay=0.02)
-#
-#         elif choice == "3":
-#             # Exit program cleanly
-#             print("Bye.")
-#             break
-#
-#         else:
-#             # Handle invalid user input
-#             print("Invalid choice.")
+if __name__ == "__main__":
+    """
+    Program entry point.
+
+    This block is executed ONLY when the file is run directly:
+        python3 maze.py
+
+    It will NOT run if this file is imported as a module.
+    """
+
+    # Create a single maze instance
+    # This instance is reused and reset between generations
+    mg = MazeGenerator(
+        width=15,
+        height=15,
+        entry=(0, 0),
+        exit=(14, 14),
+    )
+    mg.generate_step_by_step(animate=False)
+
+    # Infinite loop to keep showing the menu
+    while True:
+
+        # Display available options
+        print("\n1 - Generate maze instantly (no animation)")
+        print("2 - Generate maze with animation")
+        print("3 - Exit")
+
+        # Read user choice from stdin
+        # strip() removes trailing newline and spaces
+        choice = input("> ").strip()
+
+        if choice == "1":
+            # Reset maze to initial state (all walls closed, no visits)
+            mg.reset()
+
+            # Generate maze without animation
+            mg.generate_step_by_step(animate=False)
+
+        elif choice == "2":
+            # Reset maze before regenerating
+            mg.reset()
+
+            # Generate maze with animation
+            # delay controls animation speed (lower = faster)
+            mg.generate_step_by_step(animate=True, delay=0.02)
+
+        elif choice == "3":
+            # Exit program cleanly
+            print("Bye.")
+            break
+
+        else:
+            # Handle invalid user input
+            print("Invalid choice.")
 
 
 # ---------- DIRECT EXECUTION (DEBUG MODE) ----------
-"""
-The code below runs unconditionally.
+# """
+# The code below runs unconditionally.
 
-It is intended for:
-- Quick testing
-- Debugging
-- Inspecting internal maze structure
+# It is intended for:
+# - Quick testing
+# - Debugging
+# - Inspecting internal maze structure
 
-NOTE:
-This should normally be placed under an
-`if __name__ == "__main__":` guard in production code.
-"""
+# NOTE:
+# This should normally be placed under an
+# `if __name__ == "__main__":` guard in production code.
+# """
 
-# Create maze instance with fixed parameters
-mg = MazeGenerator(
-    width=15,
-    height=15,
-    entry=(0, 0),
-    exit=(14, 14),
-)
+# # Create maze instance with fixed parameters
+# mg = MazeGenerator(
+#     width=15,
+#     height=15,
+#     entry=(0, 0),
+#     exit=(14, 14),
+# )
 
-# Generate the maze once, without animation
-mg.generate_step_by_step(animate=False)
+# # Generate the maze once, without animation
+# mg.generate_step_by_step(animate=False)
 
-# Print raw wall data for each cell
-# This output is meant for developers, not end users
-mg.print_maze_debug()
+# # Print raw wall data for each cell
+# # This output is meant for developers, not end users
+# mg.print_maze_debug()

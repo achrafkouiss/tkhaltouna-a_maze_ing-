@@ -150,6 +150,6 @@ class MazeGenerator:
 # # ---------- MAIN ----------
 
 if __name__ == "__main__":
-    mg = MazeGenerator(15, 15)
+    mg = MazeGenerator(7, 5)
     mg.generate()
     mg.display_ascii()
