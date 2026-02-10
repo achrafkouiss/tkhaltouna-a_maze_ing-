@@ -46,7 +46,13 @@ class MazeGenerator:
         height: int,
         entry: Tuple[int, int],
         exit: Tuple[int, int],
+        perfect: bool,
+        loop_density: float,
     ) -> None:
+        ...
+        self.perfect = perfect
+        self.loop_density = max(0.0, min(loop_density, 0.2))
+
         """
         Initialize the maze generator.
 
@@ -151,11 +157,57 @@ class MazeGenerator:
         :param d: Direction from c1 to c2
         """
         opposite = {"N": "S", "S": "N", "E": "W", "W": "E"}
+        # x1, y1 = c1
+        # print("x1 and y1 = ", x1, y1)
+        # x2, y2 = c2
+        # print("x2 and y2 = ", x2, y2)
         c1.walls[d] = False
         c2.walls[opposite[d]] = False
 
-    # ---------- DISPLAY ----------
+    def _add_loops(self, animate: bool = True, delay: float = 0.02) -> None:
+        """
+        Remove extra random walls to create multiple paths (loops).
+        Animated wall removal.
+        """
+        candidates = []
 
+        for y in range(self.height):
+            for x in range(self.width):
+                if (x, y) in self.pattern_cells:
+                    continue
+
+                for d, nx, ny in [
+                    ("N", x, y - 1),
+                    ("E", x + 1, y),
+                ]:
+                    if (
+                        self._in_bounds(nx, ny)
+                        and (nx, ny) not in self.pattern_cells
+                        and self.maze[y][x].walls[d]
+                    ):
+                        candidates.append((x, y, d, nx, ny))
+
+        loops = int(len(candidates) * self.loop_density)
+        # print(len(candidates), " * ", end="")
+        # print(self.loop_density, " = ",end="")
+        # print(loops)
+
+        for _ in range(loops):
+            if not candidates:
+                break
+
+            idx = randrange(len(candidates))
+            x, y, d, nx, ny = candidates.pop(idx)
+
+            self._remove_wall(self.maze[y][x], self.maze[ny][nx], d)
+
+            if animate:
+                os.system("clear")
+                self.display_ascii_real(current=(nx, ny))
+                time.sleep(delay)
+
+
+        # ---------- DISPLAY ----------
     def display_ascii_real(self, current: Tuple[int, int] | None = None) -> None:
         """
         Render the maze using ASCII blocks.
@@ -190,7 +242,7 @@ class MazeGenerator:
                     line += EXIT
                 elif current == (x, y):
                     line += GREEN + SPACE + RESET
-                elif (x, y) in self.pattern_cells or all(cell.walls.values()):
+                elif (x, y) in self.pattern_cells:
                     line += RED + SPACE + RESET
                 else:
                     line += SPACE
@@ -206,8 +258,7 @@ class MazeGenerator:
             print(line)
 
     # ---------- DFS GENERATION ----------
-
-    def generate_step_by_step(self, delay: float = 0.08, animate: bool = True) -> None:
+    def dfs_genarator(self, delay: float = 0.08, animate: bool = True) -> None:
         """
         Generate the maze using iterative DFS (stack-based).
 
@@ -247,8 +298,148 @@ class MazeGenerator:
             else:
                 stack.pop()
 
+        if not self.perfect:
+            self._add_loops(animate=animate, delay=delay)
+
         if animate:
             os.system("clear")
+        self.display_ascii_real()
+
+
+    # def _check_neighbors(self, x, y, neighbors):
+    #     for d, nx, ny in [
+    #         ("N", x, y - 1),
+    #         ("E", x + 1, y),
+    #         ("S", x, y + 1),
+    #         ("W", x - 1, y),
+    #     ]:
+    #         if (
+    #             self._in_bounds(nx, ny)
+    #             and (nx, ny) not in self.pattern_cells
+    #             and not self.maze[ny][nx].visited
+    #         ):
+    #             neighbors.append((d, nx, ny))
+
+    # # ---------- PRIM GENERATION ----------
+    # def prim_genarator(self, delay: float = 0.08, animate: bool = True) -> None:
+    #     """
+    #     Generate the maze using Prim  (stack-based).
+
+    #     :param delay: Time between frames (animation only)
+    #     :param animate: Enable visual animation
+    #     """
+    #     # already_visited = [self.entry]
+    #     self.maze[self.entry[1]][self.entry[0]].visited = True
+    #     neighbors = []
+
+    #     # while already_visited:
+    #     x, y = self.entry
+
+    #     self._check_neighbors(x, y, neighbors)
+
+
+
+    
+
+    #     while neighbors:
+    #         real_neighbors = []
+    #         # print(neighbors, f"\n")
+    #         index = randrange(len(neighbors))
+    #         d, nx, ny = neighbors[index]
+    #         print ()
+    #         print("neighbors = ", neighbors)
+    #         # print("x and y = ", x, y)
+    #         print("d and nx and, ny = ", d, nx, ny)
+    #         for d, nnx, nny in [
+    #             ("N", nx, ny - 1),
+    #             ("E", nx + 1, ny),
+    #             ("S", nx, ny + 1),
+    #             ("W", nx - 1, ny),
+    #         ]:
+    #             if (
+    #                 self._in_bounds(nnx, nny)
+    #                 and (nnx, nny) not in self.pattern_cells
+    #                 and self.maze[nny][nnx].visited
+    #             ):
+    #                 print("entered")
+    #                 real_neighbors.append((d, nnx, nny))
+    #         print("real_neighbors = ", real_neighbors)
+    #         a, b, c = real_neighbors[randrange(len(real_neighbors))]
+    #         self._remove_wall(self.maze[ny][nx], self.maze[c][b], a)
+    #         self.maze[ny][nx].visited = True
+    #         # print("x and y = ", x, y)
+    #         # print("d and nx and, ny = ", d, nx, ny)
+    #         # x, y = nx, ny
+    #         neighbors.pop(index)
+    #         self._check_neighbors(nx, ny, neighbors)
+    #         # already_visited.append((nx, ny))
+
+    #         # if animate:
+    #         #     os.system("clear")
+    #         #     self.display_ascii_real(current=(nx, ny))
+    #         #     time.sleep(delay)
+    #         # else:
+    #         #     break 
+
+    #     # if not self.perfect:
+    #     #     self._add_loops(animate=animate, delay=delay)
+
+    #     # if animate:
+    #     #     os.system("clear")
+    #     self.display_ascii_real()
+
+
+    def _check_neighbors(self, x, y, neighbors, neighbor_coords):
+        for d, nx, ny in [
+            ("N", x, y - 1),
+            ("E", x + 1, y),
+            ("S", x, y + 1),
+            ("W", x - 1, y),
+        ]:
+            if (
+                self._in_bounds(nx, ny)
+                and (nx, ny) not in self.pattern_cells
+                and not self.maze[ny][nx].visited
+                and (nx, ny) not in neighbor_coords
+            ):
+                neighbors.append((d, nx, ny))
+                neighbor_coords.add((nx, ny))
+
+
+    def prim_genarator(self, delay: float = 0.08, animate: bool = True) -> None:
+        self.maze[self.entry[1]][self.entry[0]].visited = True
+        neighbors = []
+        neighbor_coords = set()
+
+        x, y = self.entry
+        self._check_neighbors(x, y, neighbors, neighbor_coords)
+
+        while neighbors:
+            index = randrange(len(neighbors))
+            d, nx, ny = neighbors.pop(index)
+            neighbor_coords.remove((nx, ny))
+
+            real_neighbors = []
+            for d2, nnx, nny in [
+                ("N", nx, ny - 1),
+                ("E", nx + 1, ny),
+                ("S", nx, ny + 1),
+                ("W", nx - 1, ny),
+            ]:
+                if (
+                    self._in_bounds(nnx, nny)
+                    and (nnx, nny) not in self.pattern_cells
+                    and self.maze[nny][nnx].visited
+                ):
+                    real_neighbors.append((d2, nnx, nny))
+
+            if real_neighbors:
+                a, b, c = real_neighbors[randrange(len(real_neighbors))]
+                self._remove_wall(self.maze[ny][nx], self.maze[c][b], a)
+
+            self.maze[ny][nx].visited = True
+            self._check_neighbors(nx, ny, neighbors, neighbor_coords)
+            
         self.display_ascii_real()
 
     def print_maze_debug(self) -> None:
@@ -273,72 +464,76 @@ class MazeGenerator:
         print()
 
 
-# ---------- MENU / ENTRY POINT ----------
-"""
-This section controls how the maze generator is executed
-when this file is run as a standalone script.
+# # ---------- MENU / ENTRY POINT ----------
+# """
+# This section controls how the maze generator is executed
+# when this file is run as a standalone script.
 
-It provides:
-- A simple text-based menu
-- Manual regeneration of the maze
-- Optional animation
-"""
+# It provides:
+# - A simple text-based menu
+# - Manual regeneration of the maze
+# - Optional animation
+# """
 
-if __name__ == "__main__":
-    """
-    Program entry point.
+# if __name__ == "__main__":
+#     """
+#     Program entry point.
 
-    This block is executed ONLY when the file is run directly:
-        python3 maze.py
+#     This block is executed ONLY when the file is run directly:
+#         python3 maze.py
 
-    It will NOT run if this file is imported as a module.
-    """
+#     It will NOT run if this file is imported as a module.
+#     """
 
-    # Create a single maze instance
-    # This instance is reused and reset between generations
-    mg = MazeGenerator(
-        width=15,
-        height=15,
-        entry=(0, 0),
-        exit=(14, 14),
-    )
-    mg.generate_step_by_step(animate=False)
+#     # Create a single maze instance
+#     # This instance is reused and reset between generations
+#     mg = MazeGenerator(
+#         width=15,
+#         height=15,
+#         entry=(0, 0),
+#         exit=(14, 14),
+#         perfect=False,
+#         loop_density=0.04,
+#     )
+#     mg.dfs_genarator(animate=False)
 
-    # Infinite loop to keep showing the menu
-    while True:
 
-        # Display available options
-        print("\n1 - Generate maze instantly (no animation)")
-        print("2 - Generate maze with animation")
-        print("3 - Exit")
+#     # Infinite loop to keep showing the menu
+#     while True:
 
-        # Read user choice from stdin
-        # strip() removes trailing newline and spaces
-        choice = input("> ").strip()
+#         # Display available options
+#         print("\n1 - Generate maze instantly (no animation)")
+#         print("2 - Generate maze with animation")
+#         print("3 - Exit")
 
-        if choice == "1":
-            # Reset maze to initial state (all walls closed, no visits)
-            mg.reset()
+#         # Read user choice from stdin
+#         # strip() removes trailing newline and spaces
+#         choice = input("> ").strip()
 
-            # Generate maze without animation
-            mg.generate_step_by_step(animate=False)
+#         if choice == "1":
+#             # Reset maze to initial state (all walls closed, no visits)
+#             mg.reset()
 
-        elif choice == "2":
-            # Reset maze before regenerating
-            mg.reset()
+#             # Generate maze without animation
+#             mg.dfs_genarator(animate=False)
 
-            # Generate maze with animation
-            # delay controls animation speed (lower = faster)
-            mg.generate_step_by_step(animate=True, delay=0.02)
 
-        elif choice == "3":
-            # Exit program cleanly
-            print("Bye.")
-            break
+#         elif choice == "2":
+#             # Reset maze before regenerating
+#             mg.reset()
 
-        else:
-            # Handle invalid user input
-            print("Invalid choice.")
+#             # Generate maze with animation
+#             # delay controls animation speed (lower = faster)
+#             mg.dfs_genarator(animate=True, delay=0.12)
+
+#         elif choice == "3":
+#             # Exit program cleanly
+#             print("Bye.")
+#             break
+
+#         else:
+#             # Handle invalid user input
+#             print("Invalid choice.")
 
 
 # ---------- DIRECT EXECUTION (DEBUG MODE) ----------
@@ -364,8 +559,40 @@ if __name__ == "__main__":
 # )
 
 # # Generate the maze once, without animation
-# mg.generate_step_by_step(animate=False)
+# mg.dfs_genarator(animate=False)
 
 # # Print raw wall data for each cell
 # # This output is meant for developers, not end users
 # mg.print_maze_debug()
+
+
+# ---------- DIRECT EXECUTION (DEBUG MODE) ----------
+"""
+The code below runs unconditionally.
+
+It is intended for:
+- Quick testing
+- Debugging
+- Inspecting internal maze structure
+
+NOTE:
+This should normally be placed under an
+`if __name__ == "__main__":` guard in production code.
+"""
+
+# Create maze instance with fixed parameters
+mg = MazeGenerator(
+    width=15,
+    height=15,
+    entry=(0, 0),
+    exit=(14, 14),
+    perfect=False,
+    loop_density=0.04,
+)
+
+# Generate the maze once, without animation
+mg.prim_genarator(animate=False)
+
+# Print raw wall data for each cell
+# This output is meant for developers, not end users
+mg.print_maze_debug()
