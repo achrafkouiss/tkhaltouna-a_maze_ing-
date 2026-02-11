@@ -1,18 +1,18 @@
 from random import randrange
-from typing import List, Dict, Set, Tuple
+from typing import List, Dict, Set, Tuple, Optional
 import time
 import os
 
 
-ansi_colors = {
-    'white': '\033[47m' ,
-    'red': "\033[41m",
-    'green' : "\033[42m",
-    'black':'\033[40m',
-    'yellow':'\033[43m',
-    'blue':'\033[44m',
-    'purple':'\033[45m',
-    'cyan':'\033[46m'
+ansi_colors: Dict[str, str] = {
+    "white": "\033[47m",
+    "red": "\033[41m",
+    "green": "\033[42m",
+    "black": "\033[40m",
+    "yellow": "\033[43m",
+    "blue": "\033[44m",
+    "purple": "\033[45m",
+    "cyan": "\033[46m",
 }
 
 
@@ -20,19 +20,23 @@ class Cell:
     """
     Represents a single cell in the maze grid.
 
-    Each cell:
-    - Tracks whether it has been visited during maze generation
-    - Stores the presence of its four walls (N, E, S, W)
+    A cell is a node in the maze graph.
 
-    A wall value of True means the wall exists.
-    A wall value of False means the wall is open.
+    Internal state:
+        visited:
+            Used by generation algorithms (DFS / Prim) to avoid revisiting
+            cells that are already part of the carved maze.
+
+        walls:
+            Dictionary of the four walls around the cell:
+            - "N", "E", "S", "W"
+            True  -> wall exists (blocked)
+            False -> wall removed (open path)
     """
 
     def __init__(self) -> None:
-        # Used by DFS to avoid revisiting cells
         self.visited: bool = False
 
-        # Walls surrounding the cell
         self.walls: Dict[str, bool] = {
             "N": True,
             "E": True,
@@ -43,13 +47,12 @@ class Cell:
 
 class MazeGenerator:
     """
-    Generates a maze using iterative Depth-First Search (DFS).
-
-    Features:
-    - Rectangular maze of given width and height
-    - Entry and exit points
-    - Optional embedded "42" pattern that acts as blocked cells
-    - ASCII visualization with optional animation
+    Maze generator supporting:
+        - Iterative DFS (stack-based)
+        - Randomized Prim's algorithm
+        - Optional loops (imperfect mazes)
+        - Optional hardcoded "42" obstacle pattern
+        - ASCII rendering with optional animation
     """
 
     def __init__(
@@ -62,26 +65,51 @@ class MazeGenerator:
         loop_density: float,
         color: str = "white",
     ) -> None:
-
-        self.color = color
-        self.perfect = perfect
-        self.loop_density = max(0.0, min(loop_density, 0.2))
-
         """
         Initialize the maze generator.
 
-        :param width: Number of columns
-        :param height: Number of rows
-        :param entry: (x, y) coordinate of maze entry
-        :param exit: (x, y) coordinate of maze exit
+        Parameters:
+            width:
+                Number of columns in the maze.
+
+            height:
+                Number of rows in the maze.
+
+            entry:
+                (x, y) starting cell.
+
+            exit:
+                (x, y) target cell.
+
+            perfect:
+                If True:
+                    The maze will be a perfect maze (tree structure).
+                If False:
+                    Extra loops may be introduced after generation.
+
+            loop_density:
+                Fraction of candidate walls to remove when adding loops.
+                Clamped to range [0.0, 0.2].
+
+            color:
+                ANSI background color used for rendering walls.
         """
+        # Making sure the width and height are positive values
         if width <= 0 or height <= 0:
             raise ValueError("Invalid maze size")
 
-        self.width = width
-        self.height = height
-        self.entry = entry
-        self.exit = exit
+        # Making sure the entry and the exit are not the same
+        if entry == exit:
+            raise ValueError("Entry and exit must differ")
+
+        self.width: int = width
+        self.height: int = height
+        self.entry: Tuple[int, int] = entry
+        self.exit: Tuple[int, int] = exit
+
+        self.color: str = color
+        self.perfect: bool = perfect
+        self.loop_density: float = max(0.0, min(loop_density, 0.2))
 
         # Create empty maze grid
         self._init_maze()
@@ -89,10 +117,6 @@ class MazeGenerator:
         # Prepare the 42-pattern blocking cells
         self._init_pattern()
 
-        if entry == exit:
-            raise ValueError("Entry and exit must differ")
-
-        # Prevent entry or exit from being inside blocked pattern
         if entry in self.pattern_cells or exit in self.pattern_cells:
             raise ValueError("Entry or exit inside pattern")
 
@@ -100,8 +124,9 @@ class MazeGenerator:
 
     def _init_maze(self) -> None:
         """
-        Allocate a 2D grid of Cell objects.
-        All walls are initially closed.
+        Allocate the 2D grid of Cell objects.
+
+        All cells start unvisited and fully walled.
         """
         self.maze: List[List[Cell]] = [
             [Cell() for _ in range(self.width)]
@@ -110,14 +135,18 @@ class MazeGenerator:
 
     def _init_pattern(self) -> None:
         """
-        Initialize the hardcoded 42-pattern and scale it
-        to fit inside the maze if possible.
+        Initialize the hardcoded 42 pattern.
 
-        The pattern cells act as permanent obstacles
-        and are never visited during DFS.
+        Pattern cells:
+            - Act as permanent obstacles.
+            - Are never visited.
+            - Are never carved into.
+
+        The pattern is scaled and centered if the maze is smaller
+        than the original 13x5 template.
         """
         # 13x5 representation of the "42" logo
-        self.orig_pattern = [
+        self.orig_pattern: List[List[int]] = [
             [0, 0, 0, 1, 0, 0, 0, 1, 1, 1, 0, 0, 0],
             [0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0],
             [0, 0, 0, 1, 1, 1, 0, 1, 1, 1, 0, 0, 0],
@@ -127,30 +156,31 @@ class MazeGenerator:
 
         # Set of coordinates that must remain blocked
         self.pattern_cells: Set[Tuple[int, int]] = set()
-
+        
         # Only attempt pattern insertion if maze is large enough
         if self.width >= 7 and self.height >= 5:
             # Scale pattern down if maze is smaller than original
-            scale_x = min(1, self.width / 13)
-            scale_y = min(1, self.height / 5)
+            scale_x: float = min(1.0, self.width / 13)
+            scale_y: float = min(1.0, self.height / 5)
 
             # Center the pattern
-            base_x = (self.width - round(13 * scale_x)) / 2
-            base_y = (self.height - round(5 * scale_y)) / 2
+            base_x: float = (self.width - round(13 * scale_x)) / 2
+            base_y: float = (self.height - round(5 * scale_y)) / 2
 
             for oy in range(5):
                 for ox in range(13):
                     if self.orig_pattern[oy][ox] == 1:
-                        mx = base_x + round(ox * scale_x)
-                        my = base_y + round(oy * scale_y)
+                        mx = int(base_x + round(ox * scale_x))
+                        my = int(base_y + round(oy * scale_y))
 
                         if 0 <= mx < self.width and 0 <= my < self.height:
                             self.pattern_cells.add((mx, my))
 
     def reset(self) -> None:
         """
-        Reset the maze to its initial unvisited state.
-        Pattern remains unchanged.
+        Reset the maze to its initial unvisited, fully walled state.
+
+        The pattern remains unchanged.
         """
         self._init_maze()
 
@@ -158,7 +188,7 @@ class MazeGenerator:
 
     def _in_bounds(self, x: int, y: int) -> bool:
         """
-        Check if coordinates are inside the maze.
+        Return True if (x, y) is inside the maze grid.
         """
         return 0 <= x < self.width and 0 <= y < self.height
 
@@ -166,20 +196,35 @@ class MazeGenerator:
         """
         Remove the wall between two adjacent cells.
 
-        :param c1: Current cell
-        :param c2: Neighbor cell
-        :param d: Direction from c1 to c2
+        Parameters:
+            c1:
+                First cell (origin).
+
+            c2:
+                Adjacent neighbor cell.
+
+            d:
+                Direction from c1 to c2 ("N", "E", "S", "W").
         """
-        opposite = {"N": "S", "S": "N", "E": "W", "W": "E"}
+        opposite: Dict[str, str] = {"N": "S", "S": "N", "E": "W", "W": "E"}
         c1.walls[d] = False
         c2.walls[opposite[d]] = False
 
     def _add_loops(self, animate: bool = True, delay: float = 0.02) -> None:
         """
-        Remove extra random walls to create multiple paths (loops).
-        Animated wall removal.
+        Remove random walls to introduce cycles.
+
+        This intentionally breaks the tree structure of perfect mazes
+        and creates multiple paths.
+
+        Parameters:
+            animate:
+                Whether to render each wall removal.
+
+            delay:
+                Sleep duration between frames.
         """
-        candidates = []
+        candidates: List[Tuple[int, int, str, int, int]] = []
 
         for y in range(self.height):
             for x in range(self.width):
@@ -197,7 +242,7 @@ class MazeGenerator:
                     ):
                         candidates.append((x, y, d, nx, ny))
 
-        loops = int(len(candidates) * self.loop_density)
+        loops: int = int(len(candidates) * self.loop_density)
         # print(len(candidates), " * ", end="")
         # print(self.loop_density, " = ",end="")
         # print(loops)
@@ -208,7 +253,6 @@ class MazeGenerator:
 
             idx = randrange(len(candidates))
             x, y, d, nx, ny = candidates.pop(idx)
-
             self._remove_wall(self.maze[y][x], self.maze[ny][nx], d)
 
             if animate:
@@ -216,16 +260,18 @@ class MazeGenerator:
                 self.display_ascii_real(current=(nx, ny))
                 time.sleep(delay)
 
+    # ---------- DISPLAY ----------
 
-        # ---------- DISPLAY ----------
-    def display_ascii_real(self, current: Tuple[int, int] | None = None) -> None:
+    def display_ascii_real(self, current: Optional[Tuple[int, int]] = None) -> None:
         """
-        Render the maze using ASCII blocks.
+        Render the maze using ANSI-colored ASCII blocks.
 
         Colors:
-        - Green: current DFS position
-        - Red: walls and pattern blocks
-        - E / X: entry and exit
+            - Current cell: green
+            - Pattern cells: red
+            - Walls: self.color
+            - Entry: EEE
+            - Exit: XXX
         """
         RESET = "\033[0m"
 
@@ -249,9 +295,9 @@ class MazeGenerator:
                 elif (x, y) == self.exit:
                     line += EXIT
                 elif current == (x, y):
-                    line += ansi_colors['green'] + SPACE + RESET
+                    line += ansi_colors["green"] + SPACE + RESET
                 elif (x, y) in self.pattern_cells:
-                    line += ansi_colors['red'] + SPACE + RESET
+                    line += ansi_colors["red"] + SPACE + RESET
                 else:
                     line += SPACE
 
@@ -268,18 +314,37 @@ class MazeGenerator:
     # ---------- DFS GENERATION ----------
     def dfs_genarator(self, delay: float = 0.08, animate: bool = True) -> None:
         """
-        Generate the maze using iterative DFS (stack-based).
+        Generate a maze using iterative Depth-First Search (DFS).
 
-        :param delay: Time between frames (animation only)
-        :param animate: Enable visual animation
+        This uses an explicit Python list as a stack (LIFO), not recursion.
+        The algorithm builds a spanning tree over the grid:
+
+            - Each cell is visited exactly once.
+            - Each new cell is connected to exactly one previous cell.
+            ##################################################################################################################################
+            - This guarantees a perfect maze (tree) unless loops are added later. => i still do not undestand this part
+            ##################################################################################################################################
+
+        Under the hood:
+            - `stack` stores the current DFS path.
+            - The algorithm always expands from the last pushed cell.
+            - When no unvisited neighbors exist, it backtracks by popping.
+
+        Parameters:
+            delay:
+                Time (in seconds) to sleep between frames when animation is enabled.
+
+            animate:
+                If True, the maze is rendered after each carving step.
+                If False, generation runs at full speed without rendering.
         """
-        stack = [self.entry]
+        stack: List[Tuple[int, int]] = [self.entry]
         self.maze[self.entry[1]][self.entry[0]].visited = True
 
         while stack:
             x, y = stack[-1]
 
-            neighbors = []
+            neighbors: List[Tuple[str, int, int]] = []
             for d, nx, ny in [
                 ("N", x, y - 1),
                 ("E", x + 1, y),
@@ -301,7 +366,7 @@ class MazeGenerator:
 
                 if animate:
                     os.system("clear")
-                    self.display_ascii_real(current=(nx, ny), )
+                    self.display_ascii_real(current=(nx, ny))
                     time.sleep(delay)
             else:
                 stack.pop()
@@ -314,42 +379,48 @@ class MazeGenerator:
         self.display_ascii_real()
 
 
-    def _check_neighbors(self, x, y, neighbors, neighbor_coords):
+    def _check_neighbors(
+        self,
+        x: int,
+        y: int,
+        neighbors: List[Tuple[str, int, int]],
+        neighbor_coords: Set[Tuple[int, int]],
+    ) -> None:
         """
-        Collects all valid, unvisited neighboring cells of (x, y)
-        and pushes them into the frontier list used by Prim's algorithm.
+        Collect all valid frontier neighbors for Prim's algorithm.
 
-        This function does NOT modify the maze.
-        It only builds the candidate edge list ("frontier").
+        This function has side effects:
+            - Appends new entries to `neighbors`
+            - Mutates `neighbor_coords`
+
+        It does NOT:
+            - Remove walls
+            - Mark cells as visited
 
         Parameters:
             x, y:
-                Current cell coordinates.
+                Coordinates of the current cell.
 
-            neighbors (list):
-                List of frontier candidates.
-                Each entry is (direction_from_current, nx, ny).
+            neighbors:
+                Frontier list storing potential expansion targets.
+                Each entry is (direction_from_parent, nx, ny).
 
-            neighbor_coords (set):
-                Set of coordinates already in neighbors.
-                Used to avoid pushing the same cell multiple times.
+            neighbor_coords:
+                Set of coordinates already present in `neighbors`.
+                Used to prevent duplicate frontier entries.
 
-        How it works internally:
-            - Tries the 4 cardinal directions (N, E, S, W)
-            - Filters out:
-                - Out of bounds cells
-                - Cells that belong to pattern_cells (blocked cells)
-                - Cells already visited
-                - Cells already queued in neighbors
-            - Pushes valid candidates into neighbors
-            - Tracks coordinates in neighbor_coords to prevent duplicates
+        Internal filtering:
+            - Discards out-of-bounds cells
+            - Discards pattern cells (blocked)
+            - Discards already visited cells
+            - Discards coordinates already in the frontier
 
-        Why neighbor_coords exists:
-            Without this set, the same cell can be added multiple times
-            from different parents, which causes:
-                - duplicate carving attempts
-                - extra randomness
-                - subtle maze bias
+        Why this exists:
+            Without `neighbor_coords`, the same cell could be pushed multiple times
+            from different parents, which:
+                - wastes time
+                - biases random selection
+                - increases duplicate carving attempts
         """
         for d, nx, ny in [
             ("N", x, y - 1),
@@ -369,60 +440,47 @@ class MazeGenerator:
 
     def prim_genarator(self, delay: float = 0.08, animate: bool = True) -> None:
         """
-        Generates a maze using Randomized Prim’s Algorithm.
+        Generate a maze using Randomized Prim's algorithm (maze-adapted version).
 
-        This is NOT classic graph Prim.
-        This is a maze-adapted version where:
-            - Each cell is a node
-            - Each wall is a potential edge
-            - We randomly pick frontier cells and connect them
-            to the already carved maze
+        This is NOT classical graph Prim's algorithm.
+        This version grows a maze from a seed cell by expanding a random frontier.
 
-        Steps (actual algorithm):
-            1. Start from the entry cell.
-            2. Mark it visited.
-            3. Add all valid neighbors to the frontier list.
-            4. While frontier is not empty:
-                a. Pick a random frontier cell.
-                b. Find all of its already-visited neighbors.
-                c. Randomly connect it to ONE visited neighbor.
-                d. Mark the frontier cell as visited.
-                e. Add its neighbors to the frontier.
-            5. Optionally add loops if perfect == False.
+        Under the hood:
+            - `neighbors` is the frontier (candidate expansion cells).
+            - Each frontier cell is connected to exactly ONE visited neighbor.
+            - This preserves a tree structure (perfect maze) unless loops are added.
+
+        Algorithm:
+            1. Mark the entry cell as visited.
+            2. Add its neighbors to the frontier.
+            3. While frontier is not empty:
+                - Pick a random frontier cell.
+                - Find all adjacent visited cells.
+                - Connect the frontier cell to ONE visited neighbor.
+                - Mark the frontier cell as visited.
+                - Push its neighbors into the frontier.
 
         Parameters:
             delay:
-                Time to sleep between frames when animation is enabled.
+                Time (in seconds) to sleep between animation frames.
 
             animate:
-                Whether to render each carving step.
-
-        Maze properties:
-            - Produces a uniform spanning tree (perfect maze)
-            - No cycles unless self.perfect == False
-            - No disconnected regions
+                If True, render each carving step.
         """
-        # Mark entry cell as part of the maze
         self.maze[self.entry[1]][self.entry[0]].visited = True
 
-        # Frontier list: stores candidate cells to expand into
-        neighbors = []
-
-        # Tracks which coords are already in neighbors to prevent duplicates
-        neighbor_coords = set()
+        neighbors: List[Tuple[str, int, int]] = []
+        neighbor_coords: Set[Tuple[int, int]] = set()
 
         x, y = self.entry
         self._check_neighbors(x, y, neighbors, neighbor_coords)
 
-        # Main Prim loop
         while neighbors:
-            # Pick a random frontier cell (this is the "randomized" part)
-            index = randrange(len(neighbors))
+            index: int = randrange(len(neighbors))
             d, nx, ny = neighbors.pop(index)
             neighbor_coords.remove((nx, ny))
 
-            # Find visited neighbors (cells already in the maze)
-            real_neighbors = []
+            real_neighbors: List[Tuple[str, int, int]] = []
             for d2, nnx, nny in [
                 ("N", nx, ny - 1),
                 ("E", nx + 1, ny),
@@ -435,26 +493,19 @@ class MazeGenerator:
                     and self.maze[nny][nnx].visited
                 ):
                     real_neighbors.append((d2, nnx, nny))
-        
-            # Connect the new cell to exactly ONE visited neighbor
-            # This guarantees no cycles (tree structure)
+
             if real_neighbors:
-                a, b, c = real_neighbors[randrange(len(real_neighbors))]
-                self._remove_wall(self.maze[ny][nx], self.maze[c][b], a)
+                d2, px, py = real_neighbors[randrange(len(real_neighbors))]
+                self._remove_wall(self.maze[ny][nx], self.maze[py][px], d2)
 
-            # Mark this cell as part of the maze
             self.maze[ny][nx].visited = True
-
-            # Add its neighbors to the frontier
             self._check_neighbors(nx, ny, neighbors, neighbor_coords)
 
-            # Animation hook
             if animate:
                 os.system("clear")
                 self.display_ascii_real(current=(nx, ny))
                 time.sleep(delay)
 
-        # break the tree property by adding loops
         if not self.perfect:
             self._add_loops(animate=animate, delay=delay)
 
@@ -462,17 +513,24 @@ class MazeGenerator:
             os.system("clear")
         self.display_ascii_real()
 
-    #this methide is just for debuggin
+
     def print_maze_debug(self) -> None:
         """
-        Print raw wall data for debugging.
+        Print raw wall data for each cell.
 
-        Format per cell: [N E S W]
-        Letter present = wall exists
-        Space = wall removed
+        This is a low-level developer tool.
+
+        Output format per cell:
+            [N E S W]
+
+        Legend:
+            Letter present -> wall exists
+            Space          -> wall removed
+
+        This bypasses rendering and shows the internal maze graph structure.
         """
         for y in range(self.height):
-            row = []
+            row: List[str] = []
             for x in range(self.width):
                 cell = self.maze[y][x]
                 row.append(
@@ -485,14 +543,39 @@ class MazeGenerator:
         print()
 
 
-
-
-
-
 def main_menu():
-    while True:
+    """
+    Main interactive menu (CLI controller).
 
-        # Display available options
+    Purpose:
+        This function is the main entry point of the user interface.
+        It runs an infinite loop that displays available actions and routes
+        user input to the appropriate submenu.
+
+    Responsibilities:
+        - Display top-level options
+        - Read user input from stdin
+        - Dispatch control to sub-menus:
+            - no_animation_menu()
+            - animation_menu()
+            - color_menu()
+        - Exit the program when the user chooses 'q'
+
+    What this function DOES:
+        - It does NOT generate mazes itself
+        - It does NOT modify maze structure
+        - It only routes user input to the correct handlers
+
+    Control Flow:
+        while True:
+            show menu
+            wait for input
+            call correct function based on input
+
+    Exit condition:
+        The loop only stops when the user enters 'q'.
+    """
+    while True:
         print("\n--- Main menu ---")
         print("1 - Generate maze instantly (no animation)")
         print("2 - Generate maze with animation ")
@@ -514,6 +597,29 @@ def main_menu():
             print("Invalid choice. Please select a valid option.")
 
 def no_animation_menu():
+    """
+    Submenu for generating mazes WITHOUT animation.
+
+    Purpose:
+        Allows the user to generate a maze instantly using either:
+            - DFS algorithm
+            - Prim's algorithm
+
+    Responsibilities:
+        - Reset the maze state before generation
+        - Call the chosen algorithm with animate=False
+        - Loop until the user chooses to go back
+
+    Important implementation detail:
+        mg.reset() is REQUIRED before every generation.
+        Without resetting:
+            - visited flags would leak between runs
+            - walls would remain removed
+            - the maze would become corrupted
+
+    Exit condition:
+        The loop ends only when the user enters 'b'.
+    """
     while True:
         print("\n--- No animation menu ---")
         print("1 - DFS  -- Generate maze instantly (no animation)")
@@ -539,6 +645,29 @@ def no_animation_menu():
             print("Invalid choice. Please select a valid option.")
 
 def animation_menu():
+    """
+    Submenu for generating mazes WITH animation.
+
+    Purpose:
+        Allows the user to visually observe how DFS and Prim carve the maze
+        step-by-step in real time.
+
+    Responsibilities:
+        - Reset maze state before generation
+        - Run the selected algorithm with animate=True
+        - Control animation speed via delay parameter
+        - Handle Ctrl+C interruption safely
+
+    Why try/except KeyboardInterrupt exists:
+        During animation, the user may press Ctrl+C.
+        Without this handler:
+            - The program would crash
+            - The terminal could be left in a broken state
+        This handler safely returns control to the menu instead.
+
+    Exit condition:
+        The loop ends only when the user enters 'b'.
+    """
     while True:
         print("\n--- Animation menu ---")
         print("1 - DFS --  Generate maze with animation ")
@@ -570,8 +699,25 @@ def animation_menu():
             print("\n[!] Interrupted. Back to menu.")
     
 def color_menu():
+    """
+    Submenu for changing the maze display color.
 
+    Purpose:
+        Allows the user to change the ANSI background color used to render
+        the maze in the terminal.
 
+    Important behavior:
+        The chosen color is stored inside mg.color.
+        This means:
+            - The color persists across maze regenerations
+            - Future mazes will use the same selected color
+            - The color is not just cosmetic for the current render
+
+    Rendering:
+        After changing color:
+            - The screen is cleared
+            - The maze is redrawn using the new color
+    """
     while True:
         print("\n--- Maze Colors ---")
         for i, c in enumerate(ansi_colors.keys(), 0):
@@ -602,9 +748,9 @@ This section controls how the maze generator is executed
 when this file is run as a standalone script.
 
 It provides:
-- A simple text-based menu
-- Manual regeneration of the maze
-- Optional animation
+    - A simple text-based menu
+    - Manual regeneration of the maze
+    - Optional animation
 """
 
 if __name__ == "__main__":
@@ -615,6 +761,16 @@ if __name__ == "__main__":
         python3 maze.py
 
     It will NOT run if this file is imported as a module.
+
+    Purpose:
+        - Create a single MazeGenerator instance
+        - Generate an initial maze
+        - Enter the interactive menu loop
+
+    Design choice:
+        A single MazeGenerator instance (mg) is reused across all generations.
+        Only the internal maze grid is reset between runs.
+        This allows state like color and settings to persist.
     """
 
     # Create a single maze instance
