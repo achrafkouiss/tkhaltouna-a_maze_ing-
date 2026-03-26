@@ -1,0 +1,19 @@
+# Maze configuration file
+
+WIDTH = 15
+HEIGHT = 15
+
+# Entry and exit coordinates: x,y
+ENTRY = 14,14
+EXIT = 0,0
+
+# Output file for the maze
+OUTPUT_FILE = maze_output.txt
+
+# Perfect maze or not (True/False)
+PERFECT = False
+
+# Maze color: white, red, green, yellow, blue, purple, cyan
+COLOR = white
+
+SEED=42
