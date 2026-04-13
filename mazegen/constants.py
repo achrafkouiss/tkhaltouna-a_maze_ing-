@@ -1,16 +1,17 @@
-ansi_colors: dict[str, str] = {
+ANSI_COLORS: dict[str, str] = {
     "white": "\033[47m",
-    "red": "\033[41m",
     "green": "\033[42m",
     "yellow": "\033[43m",
     "blue": "\033[44m",
     "purple": "\033[45m",
-    "cyan": "\033[46m",
 }
 
-N, E, S, W = 1, 2, 4, 8
+N: int = 1
+E: int = 2
+S: int = 4
+W: int = 8
 
-OPPOSITE = {
+OPPOSITE: dict[int, int] = {
     N: S,
     S: N,
     E: W,

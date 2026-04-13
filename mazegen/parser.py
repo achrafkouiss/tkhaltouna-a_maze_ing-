@@ -1,35 +1,47 @@
-from pydantic import BaseModel, Field, ValidationError, field_validator, model_validator
-from typing import Tuple
+from pydantic import BaseModel, Field, ValidationError, model_validator
+from typing import Tuple, Any, Optional
 import pathlib
 import sys
+from typing_extensions import Self
 
 
 class MazeConfig(BaseModel):
-    width: int = Field(..., gt=0)
-    height: int = Field(..., gt=0)
+    """
+    Configuration model for maze generation.
+
+    Attributes:
+        width: Maze width (must be > 0).
+        height: Maze height (must be > 0).
+        entry: Entry coordinates (x, y).
+        exit: Exit coordinates (x, y).
+        output_file: Output file path.
+        perfect: Whether the maze should be perfect.
+        seed: Optional random seed.
+        algo: Optional algorithm name used for maze generation
+                (e.g., "dfs", "prim").
+    """
+    width: int = Field(gt=0)
+    height: int = Field(gt=0)
     entry: Tuple[int, int]
     exit: Tuple[int, int]
     output_file: str
     perfect: bool
-    color: str = "white"
-    seed: int | None = None
-
-    @field_validator("color")
-    @classmethod
-    def color_must_be_known(cls, v: str) -> str:
-        allowed_colors = [
-            "white", "red", "green",
-            "yellow", "blue", "magenta", "cyan"
-        ]
-        if v not in allowed_colors:
-            raise ValueError(
-                f"Color must be one of {allowed_colors}"
-            )
-        return v
+    seed: Optional[int] = None
+    algo: Optional[str] = None
 
     @model_validator(mode="after")
-    def validate_all(self) -> "MazeConfig":
-        # Entry / Exit must be inside bounds
+    def validate_all(self) -> Self:
+        """
+        Validate entry and exit coordinates.
+
+        Ensures both are within bounds and not identical.
+
+        Returns:
+            Self
+
+        Raises:
+            ValueError: If validation fails.
+        """
         ex, ey = self.entry
         if not (0 <= ex < self.width and 0 <= ey < self.height):
             raise ValueError(
@@ -44,17 +56,28 @@ class MazeConfig(BaseModel):
                 f"(width={self.width}, height={self.height})"
             )
 
-        # Entry != Exit
         if self.entry == self.exit:
-            raise ValueError(
-                "Entry and Exit cannot be the same"
-            )
+            raise ValueError("Entry and Exit cannot be the same")
 
         return self
 
 
 def parse_config_file(path: str) -> MazeConfig:
-    config_dict = {}
+    """
+    Parse and validate a configuration file.
+
+    Reads key-value pairs, validates them, and constructs a MazeConfig.
+
+    Args:
+        path: Path to the configuration file.
+
+    Returns:
+        A validated MazeConfig instance.
+
+    Exits:
+        Terminates the program on parsing or validation errors.
+    """
+    config_dict: dict[str, Any] = {}
     path_obj = pathlib.Path(path)
 
     if not path_obj.exists():
@@ -68,11 +91,12 @@ def parse_config_file(path: str) -> MazeConfig:
         "EXIT",
         "OUTPUT_FILE",
         "PERFECT",
-        "COLOR",
         "SEED",
+        "ALGO"
     }
 
-    with path_obj.open("r", encoding="utf-8") as f:
+    with open(path, "r") as f:
+
         for line in f:
             line = line.strip()
             if not line or line.startswith("#"):
@@ -85,17 +109,14 @@ def parse_config_file(path: str) -> MazeConfig:
             key = key.strip()
             value = value.strip()
 
-            # 🔴 Enforce strict uppercase
             if key != key.upper():
                 print(f"[ERROR] Key must be uppercase: '{key}'")
                 sys.exit(1)
 
-            # 🔴 Check if key is allowed
             if key not in allowed_keys:
                 print(f"[ERROR] Unknown key: {key}")
                 sys.exit(1)
 
-            # Parse the values
             try:
                 if key in ("WIDTH", "HEIGHT"):
                     config_dict[key.lower()] = int(value)
@@ -103,44 +124,47 @@ def parse_config_file(path: str) -> MazeConfig:
                     x, y = map(int, value.split(","))
                     config_dict[key.lower()] = (x, y)
                 elif key == "PERFECT":
-                    if value.lower() not in ("true", "false"):
+                    if value not in ("True", "False"):
                         raise ValueError("PERFECT must be True or False")
                     config_dict["perfect"] = value.lower() == "true"
                 elif key == "OUTPUT_FILE":
+                    if not value.endswith(".txt") or value == "config.txt":
+                        raise ValueError(
+                            "OUTPUT_FILE should be a .txt and"
+                            " also should not be named \"config.txt\""
+                        )
                     config_dict["output_file"] = value
-                elif key == "COLOR":
-                    config_dict["color"] = value
                 elif key == "SEED":
                     config_dict["seed"] = int(value)
+                elif key == "ALGO":
+                    if value not in ["dfs", "prim"]:
+                        raise ValueError("ALGO should be either dfs or prim")
+                    config_dict["algo"] = value
             except ValueError as e:
                 print(f"[ERROR] Invalid value for {key}: {value} ({e})")
                 sys.exit(1)
 
-    # 🔴 Check for missing mandatory keys
-    required_keys = {"width", "height", "entry", "exit", "output_file", "perfect"}
+    required_keys = {
+        "width",
+        "height",
+        "entry",
+        "exit",
+        "output_file",
+        "perfect"
+        }
     missing = required_keys - config_dict.keys()
     if missing:
         print(f"[ERROR] Missing required keys: {', '.join(missing)}")
         sys.exit(1)
 
-    # Validate with Pydantic
     try:
         config = MazeConfig(**config_dict)
     except ValidationError as e:
         print("[ERROR] Configuration validation failed:")
         for err in e.errors():
-            loc = ".".join(map(str, err["loc"]))
+            loc = "".join(map(str, err["loc"]))
             msg = err["msg"]
             print(f"  - {loc}: {msg}")
         sys.exit(1)
 
     return config
-
-
-if __name__ == "__main__":
-    if len(sys.argv) != 2:
-        print("Usage: python3 parser.py config.txt")
-        sys.exit(1)
-
-    config = parse_config_file(sys.argv[1])
-    print(config.model_dump_json(indent=4))

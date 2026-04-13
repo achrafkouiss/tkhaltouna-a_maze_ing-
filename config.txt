@@ -1,19 +1,20 @@
 # Maze configuration file
-
 WIDTH = 15
 HEIGHT = 15
 
 # Entry and exit coordinates: x,y
-ENTRY = 14,14
-EXIT = 0,0
+ENTRY = 0,0
+EXIT = 14,14   
 
 # Output file for the maze
 OUTPUT_FILE = maze_output.txt
 
 # Perfect maze or not (True/False)
-PERFECT = False
+PERFECT = True
 
-# Maze color: white, red, green, yellow, blue, purple, cyan
-COLOR = white
+#seed and algo are optional
+#seed should contain a number
+#SEED=42
 
-SEED=42
+#algo should either be prim or dfs
+#ALGO=dfs

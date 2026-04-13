@@ -1,295 +1,434 @@
-
-# Maze Generator – dev notes (read this first)
-
-This repo contains **a lot of files**, but **most of them are experiments / old attempts**.
-This README is just here so you don’t waste time figuring out *what actually matters*.
-
-You’re working on **the solver**, so this explains **how the maze is generated and where to plug in**.
+*This project has been created as part of the 42 curriculum by akouiss, yjabrane.*
 
 ---
 
-## The important file (really)
+# 🧩 A-Maze-ing
 
-👉 **`a_maze_ing.py` is the file you should care about**
+## 📌 Description
 
-If you ignore everything else and only read one file, read this one.
+A-Maze-ing is a Python project that generates, solves, and visualizes mazes using classical graph algorithms.
 
-It contains:
+The project provides:
 
-* the final `MazeGenerator` class
-* the actual maze structure
-* iterative DFS generation (no recursion)
-* entry / exit handling
-* the blocked “42” pattern
-* ASCII display + debug output
+* Maze generation using **DFS** and **Prim**
+* Shortest path solving using **BFS**
+* ASCII visualization with colors
+* Step-by-step animation
+* Export to a strict file format
+* Config-driven execution
 
-All the maze logic lives there.
-
----
-
-## Why there are so many files
-
-Short answer: **development history**.
-
-Files like:
-
-```
-achraf.py
-achraf2.py
-achraf3.py
-achraf4.py
-goodmaze.py
-maze.py
-ma.py
-iterative_dfs.py
-recursive_dfs.py
-```
-
-are:
-
-* tests
-* partial rewrites
-* visual/debug experiments
-* DFS prototypes (recursive vs iterative)
-
-They are **not the final design** and you don’t need them to understand the maze.
-
-They exist because the maze logic evolved step by step.
+It emphasizes algorithmic thinking, data structures, and clean modular design.
 
 ---
 
-## How the maze works (high level)
+## ⚙️ Instructions
 
-* The maze is a grid of `Cell`
-* Each cell has 4 walls: `N E S W`
-* DFS starts from the **entry**
-* Uses a **stack (iterative DFS)**, not recursion
-* Random neighbor selection
-* Walls are removed as DFS progresses
-* Some cells are **blocked** (the “42” pattern)
+### ▶️ Requirements
 
-  * DFS never enters them
-* After generation:
-
-  * entry and exit are forced to connect to the maze interior
-  * outer borders stay intact
-
-So the result is:
-
-* one connected maze
-* guaranteed path (except blocked cells)
-* entry → exit is reachable
+* Python 3.10+
+* `pydantic`
 
 ---
 
-## How to run it
-
-For quick testing:
+### ▶️ Execution (Project Mode)
 
 ```bash
-python3 a_maze_ing.py
+python a_maze_ing.py <config_file>
 ```
 
-What it does by default:
+Example:
 
-* generates a 15×15 maze
-* no animation
-* prints the maze in ASCII
-* prints a debug view of the walls
-
-There is also a **menu version** inside the file (commented out)
-that lets you regenerate with or without animation.
+```bash
+python a_maze_ing.py config.txt
+```
 
 ---
 
-## About the debug output
+## ▶️ Makefile Usage
 
-There’s a function:
+The project includes a Makefile to simplify common tasks:
+
+```bash
+make
+```
+
+* Runs the default target (`run`)
+
+---
+
+### ▶️ Run the Program
+
+```bash
+make run
+```
+
+Executes:
+
+```bash
+python3 a_maze_ing.py config.txt
+```
+
+---
+
+### ▶️ Install the Package
+
+```bash
+make install
+```
+
+This will:
+
+* Upgrade `pip`
+* Install available packages:
+
+  * `.whl` (preferred)
+  * `.tar.gz` (fallback)
+* Looks in:
+
+  * `dist/`
+  * current directory
+
+⚠️ Make sure your virtual environment is activated before running this.
+
+---
+
+### ▶️ Debug Mode
+
+```bash
+make debug
+```
+
+* Runs the program using Python debugger (`pdb`)
+
+---
+
+### ▶️ Clean Project
+
+```bash
+make clean
+```
+
+Removes:
+
+* `__pycache__/`
+* `.mypy_cache/`
+* `.pyc` files
+
+---
+
+### ▶️ Lint (Code Quality)
+
+```bash
+make lint
+```
+
+Runs:
+
+* `flake8`
+* `mypy` with strict options
+
+---
+
+### ▶️ Strict Lint
+
+```bash
+make lint-strict
+```
+
+* Runs `mypy --strict`
+* Detects stricter type issues
+
+---
+
+
+## 📦 Package Installation (Poetry)
+
+### ▶️ Creating the Package
+
+The project is packaged using Poetry:
+
+```bash
+poetry init
+```
+
+This initializes the project and creates `pyproject.toml`.
+
+Then build the package:
+
+```bash
+poetry build
+```
+
+This generates:
+
+* `.whl` (wheel)
+* `.tar.gz` (source archive)
+
+Both are located in the `dist/` directory.
+
+---
+
+### ▶️ Installing in a Virtual Environment
+
+Create a virtual environment manually:
+
+```bash
+python -m venv env
+```
+
+Activate it:
+
+* Linux/macOS:
+
+```bash
+source env/bin/activate
+```
+
+---
+
+### ▶️ Install the Package
+
+The package is installed using the provided Makefile:
+
+```bash
+make install
+```
+
+This command will:
+
+* Install the pakage into the active virtual environment
+
+Make sure your virtual environment is activated before running the command.
+
+---
+
+### ▶️ Using the Package
+
+Once installed, you can import and use it:
 
 ```python
-print_maze_debug()
+from mazegen.generator import MazeGenerator
+from mazegen.solver import MazeSolver
+
+mg = MazeGenerator(10, 10, (0, 0), (9, 9), True)
+solver = MazeSolver(mg)
+
+path = solver.solve_bfs()
+print(path)
 ```
 
-This prints something like:
-
-```
-[NESW] [N E ] [  ES] ...
-```
-
-This is **raw wall data**, useful for:
-
-* checking connectivity
-* verifying solver logic
-* making sure walls match on both sides
-
-This is probably the part you’ll use the most for your solver.
+The module is fully reusable and independent of the CLI.
 
 ---
 
-## For your solver part
+## 📄 Configuration File Format
 
-What you can rely on:
-
-* Maze grid: `mg.maze[y][x]`
-* Each cell has:
-
-  * `cell.walls["N"]`, `"E"`, `"S"`, `"W"`
-* Entry: `mg.entry`
-* Exit: `mg.exit`
-* Blocked cells: `mg.pattern_cells` (don’t step into these)
-
-You don’t need to care how the maze is generated —
-just treat it as a **valid maze graph**.
-
----
-
-## TL;DR
-
-* Ignore most files
-* Read **`a_maze_ing.py`**
-* That file = maze generation + structure
-* Your solver can build on top of it directly
-
-
-
-
-
-
-
-## What happens if we enable the `__main__` block
-
-If we **uncomment the `if __name__ == "__main__":` block**, the file changes behavior in an important way.
-
-### Current behavior (as it is now)
-
-Right now, the file does this **every time it is run**:
-
-* Creates a maze
-* Generates it once (no animation)
-* Prints the maze
-* Prints the debug wall structure
-* Then exits
-
-There is **no interaction**.
-It’s good for:
-
-* debugging
-* solver development
-* predictable output
-
----
-
-### Behavior with `__main__` enabled
-
-If we uncomment the `__main__` block:
-
-```python
-if __name__ == "__main__":
-    ...
+```txt
+WIDTH=20
+HEIGHT=10
+ENTRY=0,0
+EXIT=19,9
+OUTPUT_FILE=maze.txt
+PERFECT=True
+SEED=42
+ALGO=dfs
 ```
 
-then the file becomes **interactive** instead of automatic.
+### 🔒 Rules
 
-What changes:
+* All keys must be **uppercase**
+* Required fields:
 
-* The maze generator **does not auto-run**
-* A **menu appears**
-* The program stays alive until the user chooses to exit
+  * `WIDTH`, `HEIGHT` (> 0 and ≤ 200)
+  * `ENTRY`, `EXIT` (inside bounds and different)
+  * `OUTPUT_FILE` (.txt, not `config.txt`)
+  * `PERFECT` (True/False)
+* Optional:
 
-So instead of “run once and quit”, it becomes:
+  * `SEED` (int)
+  * `ALGO` (`dfs` or `prim`)
 
+Invalid configuration → program exits immediately.
+
+---
+
+## 🌱 Maze Generation Algorithms
+
+### DFS (Depth-First Search)
+
+* Backtracking algorithm
+* Uses a stack
+* Produces long corridors
+
+### Prim Algorithm
+
+* Frontier-based randomized algorithm
+* Produces more balanced mazes
+
+---
+
+## 🤔 Why These Algorithms
+
+* **DFS**
+
+  * Simple and efficient
+  * Good for understanding recursion/backtracking
+
+* **Prim**
+
+  * Produces more natural structures
+  * Avoids linear bias of DFS
+
+Using both highlights structural differences in maze generation.
+
+---
+
+## 🧠 Solver
+
+* Breadth-First Search (BFS)
+* Guarantees shortest path
+* Uses queue + parent reconstruction
+
+---
+
+## 📤 Output Format
+
+```txt
+<maze in hex format>
+(empty line)
+entry_x,entry_y
+exit_x,exit_y
+path (N/E/S/W)
 ```
-run file
-show menu
-wait for user input
-generate maze
-wait again
-...
-```
+
+### Wall Encoding
+
+* N = 1
+* E = 2
+* S = 4
+* W = 8
+
+Each cell is stored as a hexadecimal value.
 
 ---
 
-### Practical effect on usage
+## 🔁 Advanced Features
 
-With `__main__` enabled:
-
-* You can generate **multiple mazes in one run**
-* You can switch between:
-
-  * animated generation
-  * instant generation
-* You can visually inspect DFS step-by-step
-
-Without `__main__` enabled:
-
-* Every run generates **exactly one maze**
-* Output is deterministic per run
-* Easier to feed into solver logic
+* DFS & Prim generation
+* Perfect / imperfect maze toggle
+* Loop creation
+* ASCII colored rendering
+* Generation replay animation
+* Path visualization
+* Embedded **42 pattern** inside the maze
 
 ---
 
-### What does NOT change
+## ♻️ Reusable Module
 
-Very important:
+The project is structured as a reusable Python package:
 
-* The maze generation logic **does not change**
-* The maze structure **does not change**
-* DFS behavior **does not change**
-* Cell / wall data **does not change**
+* `generator.py`
 
-Only **how the program is launched and controlled** changes.
+  * Core maze logic (DFS, Prim, loops)
 
----
+* `solver.py`
 
-### Why this matters for the solver
+  * BFS shortest path
 
-If `__main__` is enabled and the file is **imported**:
+* `display.py`
 
-```python
-from a_maze_ing import MazeGenerator
-```
+  * ASCII rendering + animation
 
-Nothing inside the menu runs.
+* `parser.py`
 
-So:
+  * Strict config validation (Pydantic)
 
-* Solver code is safe
-* No accidental prints
-* No animation
-* No side effects
+* `writer.py`
 
-If `__main__` is **not used** and code runs at top level:
+  * Export system
 
-* Importing the file would immediately generate a maze
-* Print output would happen automatically
-* This would interfere with solver execution
+* `menu.py`
 
-That’s why the `__main__` guard exists.
+  * Interactive CLI
+
+Each module is independent and reusable.
 
 ---
 
-### When we should use each mode
+## 👥 Team & Project Management
 
-Use the **menu (`__main__` enabled)** when:
+### Roles
 
-* visually debugging DFS
-* tuning animation speed
-* checking pattern placement
-* demoing the generator
+* **akouiss**
 
-Use the **automatic run (current state)** when:
+  * Maze generation (DFS, Prim, loops)
+  * Display system (ASCII + animation)
+  * Menu system
+  * Configuration parser (Pydantic)
 
-* developing the solver
-* testing pathfinding
-* wanting fast, repeatable output
+* **yjabran**
+
+  * File writer
+  * BFS solver
 
 ---
 
-### One-sentence summary
+### 📅 Planning
 
-Uncommenting the `__main__` block turns the file from
-**“generate one maze and exit”**
-into
-**“interactive maze generator for development and testing.”**
+Initial plan:
 
-That’s it.
+* Separate modules (generator / solver / parser / display)
+
+Actual evolution:
+
+* Generation required more time (edge cases, loops, pattern)
+* Display + animation required iterative debugging
+* Parser was stable early due to strict validation
+* Solver integration was straightforward
+
+
+###
+
+---
+
+### 🛠️ Tools Used
+
+* Python
+* Pydantic
+* Git
+* mypy
+* flake8
+
+---
+
+## 📚 Resources
+
+* DFS: https://www.algosome.com/articles/maze-generation-depth-first.html
+* BFS: https://medium.com/@rahul.singh.suny/understanding-breadth-first-search-bfs-a-comprehensive-guide-c49d5b39363c
+* Prim: https://weblog.jamisbuck.org/2011/1/10/maze-generation-prim-s-algorithm
+
+---
+
+## 🤖 AI Usage
+
+AI was used for:
+
+* Clarifying algorithm behavior (DFS, BFS, Prim)
+* Improving documentation clarity
+
+AI was **not used to blindly generate the project**.
+All implementations were written, reviewed, and validated manually.
+
+---
+
+## ✅ Conclusion
+
+This project demonstrates:
+
+* Graph traversal algorithms
+* Procedural generation techniques
+* Clean modular design
+* Practical use of validation and packaging
+
+It is both a functional tool and a reusable library.
