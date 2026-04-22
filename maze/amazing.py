@@ -36,13 +36,26 @@ class mazegen:
         self.exit = exit
         self.perfect = perfect
         # self.pattern = []
-
+        random.seed(3)
         self.__init_maze()
         self.__42_pattern()
-        self.display_maze()
-        self._dfs()
+        # self.display_maze()
+        # self._dfs()
+        self._prim()
         print()
         self.display_maze()
+        for x in range(self.height):
+            row = []
+            for y in range(self.witdh):
+                cell = self.maze[x][y]
+                row.append(
+                    f"[{'N' if cell.walls & N else ' '}"
+                    f"{'E' if cell.walls & E else ' '}"
+                    f"{'W' if cell.walls & W else ' '}"
+                    f"{'S' if cell.walls & S else ' '}]"
+                    )
+            print("".join(row))
+        print()
 
     def __init_maze(self):
         self.maze = [[Cell() for _ in range(self.witdh)] for _ in range(self.height)]
@@ -102,7 +115,7 @@ class mazegen:
                     line += ansi_code["red"] + "   " + RESET
                 else:
                     line += "   "
-                if (self.maze[y][x].walls & W):
+                if (self.maze[y][x].walls & E):
                     line += VWALL
                 else:
                     line += "  "
@@ -116,90 +129,109 @@ class mazegen:
                 line += VWALL
             print(line)
 
-    def __inbound(self, x, y):
+    def __inbound(self, y, x):
         return 0 <= y < self.height and 0 <= x < self.witdh
 
-    def __open_walls(self, x, y, xxx, yyy, d):
-        # print(x, y, xxx, yyy, d)
+    def __open_walls(self, y, x, yyy, xxx, d):
         self.maze[y][x].walls &= ~d
         self.maze[yyy][xxx].walls &= ~OPPOSITE[d]
 
     def _dfs(self):
-        y, x = self.entry
-        stack = [self.entry]
-        self.maze[y][x].visited = True
+        stack = [(self.entry)]
+        self.maze[self.entry[0]][self.entry[1]].visited = True
+
         while stack:
-            y, x = stack[-1]
-            neighbors = []
-            for yy, xx, d in [
-                (y + 1, x, S),  # down
-                (y - 1, x, N),  # up
-                (y, x + 1, E),  # right
-                (y, x - 1, W)   # left
-            ]:
-                if self.__inbound(yy, xx) and\
-                    not (yy, xx) in self.pattern\
-                    and not self.maze[yy][xx].visited:
-                        neighbors.append((yy, xx, d))
-            # if neighbors:
-            #     new_nei = random.choice(neighbors)
-            #     yyy, xxx, d = new_nei
-            #     self.__open_walls(y, x, yyy, xxx, d)
-            #     self.maze[yyy][xxx].visited = True
-            #     x, y = xxx, yyy
-            #     stack.append((yyy, xxx))
-            # else:
-            #     stack.pop()
-            if neighbors:
-                d, nx, ny = neighbors[random.randrange(len(neighbors))]
-                # self.__open_walls(self.maze[y][x], self.maze[ny][nx], d)
-                self.__open_walls(y, x, ny, nx, d)
-                self.maze[ny][nx].visited = True
-                stack.append((nx, ny))
-                # self.history.append((x, y, nx, ny, d))
+            y,  = stack[-1]
+            neighbour = []
+            for ny, nx, d in [
+                (y + 1, x, S),
+                (y - 1, x, N),
+                (y, x + 1, E),
+                (y, x - 1, W),
+                ]:
+                if self.__inbound(ny, nx) and \
+                (ny, nx) not in self.pattern and\
+                not self.maze[ny][nx].visited:
+                    neighbour.append((ny, nx, d))
+            # print(neighbour)
+            if neighbour:
+                nyy, nxx, d = random.choice(neighbour)
+                # print((nyy, nxx, d))
+                self.__open_walls(y, x, nyy, nxx, d)
+                self.maze[nyy][nxx].visited = True
+                stack.append((nyy, nxx))
             else:
                 stack.pop()
 
-    # def _dfs(self):
-    #     stack = [self.entry]
-    #     y, x = self.entry
-    #     self.maze[y][x].visited = True
+    def _dfs(self):
+            stack = [(self.entry)]
+            self.maze[self.entry[0]][self.entry[1]].visited = True
 
-    #     while stack:
-    #         y, x = stack[-1]
-
-    #         neighbors = [
-    #             (y - 1, x, N),  # up
-    #             (y + 1, x, S),  # down
-    #             (y, x - 1, W),  # left
-    #             (y, x + 1, E),  # right
-    #         ]
-
-    #         valid = []
-    #         for ny, nx, direction in neighbors:
-    #             if not self.__inbound(ny, nx):
-    #                 continue
-    #             if self.maze[ny][nx].visited:
-    #                 continue
-    #             if (ny, nx) in self.pattern:
-    #                 continue
-    #             valid.append((ny, nx, direction))
-
-    #         if not valid:
-    #             stack.pop()
-    #             continue
-
-    #         ny, nx, direction = random.choice(valid)
-
-    #         self.__open_walls(y, x, ny, nx, direction)
-
-    #         self.maze[ny][nx].visited = True
-    #         stack.append((ny, nx))
-
+            while stack:
+                y, x = stack[-1]
+                neighbour = []
+                for ny, nx, d in [
+                    (y + 1, x, S),
+                    (y - 1, x, N),
+                    (y, x + 1, E),
+                    (y, x - 1, W),
+                    ]:
+                    if self.__inbound(ny, nx) and \
+                    (ny, nx) not in self.pattern and\
+                    not self.maze[ny][nx].visited:
+                        neighbour.append((ny, nx, d))
+                # print(neighbour)
+                if neighbour:
+                    nyy, nxx, d = random.choice(neighbour)
+                    # print((nyy, nxx, d))
+                    self.__open_walls(y, x, nyy, nxx, d)
+                    self.maze[nyy][nxx].visited = True
+                    stack.append((nyy, nxx))
+                else:
+                    stack.pop()
+ 
+    def _prim(self):
+        stack = [(self.entry)]
+        self.maze[self.entry[0]][self.entry[1]].visited = True
+        neighbour = []
+                            # N, E, S, W = 1, 2, 4, 8
+        while stack:
+            y, x = stack[-1]
+            while stack:
+                y, x = stack[-1]
+                for ny, nx, d in [
+                    (y + 1, x, S),
+                    (y - 1, x, N),
+                    (y, x + 1, E),
+                    (y, x - 1, W),
+                    ]:
+                    if self.__inbound(ny, nx) and \
+                    (ny, nx) not in self.pattern and\
+                    not self.maze[ny][nx].visited:
+                        neighbour.append((ny, nx, d))
+                if neighbour:
+                    nyy, nxx, d = neighbour.pop(random.randrange(len(neighbour)))
+                    neinei = []
+                    for nyyy, nxxx, d in [
+                        (nyy + 1, nxx, S),
+                        (nyy - 1, nxx, N),
+                        (nyy, nxx + 1, E),
+                        (nyy, nxx - 1, W),
+                        ]:
+                        if self.__inbound(nyyy, nxxx) and \
+                        (nyyy, nxxx) not in self.pattern and\
+                            self.maze[nyyy][nxxx].visited:
+                            neinei.append((nyyy, nxxx, d))
+                    # print((nyy, nxx, d), end="")
+                    print(neinei)
+                    # sys.exit(0)
+                    self.__open_walls(y, x, nyy, nxx, d)
+                    self.maze[nyy][nxx].visited = True
+                    stack.append((nyy, nxx))
+                else:
+                    stack.pop()
+                
                     
-
-
-
 
 
 
